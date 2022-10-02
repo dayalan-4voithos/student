@@ -1,0 +1,357 @@
+<html>
+<head>
+    <style>
+        #nextPage, #previousPage {
+            border: none;
+            background-color: transparent;
+        }
+
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        const STUDENT_API = "http://localhost:8080/api/student/";
+        var date = (new Date()).toISOString().split('T')[0];
+        $(document).ready(function () {
+            getAllStudents(false, 0);
+            $("#btnResetForm").click(() => {
+                $('#frmSaveStudent').trigger("reset");
+            });
+            $("#nextPage").click(() => {
+                let totalPage = parseInt(localStorage.getItem('totalPages'))
+                let pageNumber = parseInt(localStorage.getItem('currentPage'))
+                if (totalPage != pageNumber + 1) {
+                    getAllStudents(true, ++pageNumber)
+                    localStorage.setItem('currentPage', pageNumber.toString())
+                }
+                enableNextOrPrevious()
+            });
+            $('#uDob').attr('max',date);
+            $('#dob').attr('max',date);
+
+            $("#previousPage").click(() => {
+                let pageNumber = parseInt(localStorage.getItem('currentPage'))
+                if (pageNumber != 0) {
+                    getAllStudents(true, --pageNumber)
+                    localStorage.setItem('currentPage', pageNumber.toString())
+                }
+                enableNextOrPrevious()
+            });
+
+            $('#frmUpdateStudent').submit((e)=>{
+                e.preventDefault();
+                updateStudent()
+            })
+
+            $("#frmSaveStudent").submit((e) => {
+                e.preventDefault();
+                saveStudent();
+            });
+        });
+
+        let format = function (str, col) {
+            col = typeof col === 'object' ? col : Array.prototype.slice.call(arguments, 1);
+
+            return str.replace(/\{\{|\}\}|\{(\w+)\}/g, function (m, n) {
+                if (m == "{{") {
+                    return "{";
+                }
+                if (m == "}}") {
+                    return "}";
+                }
+                return col[n];
+            });
+        };
+
+        function enableNextOrPrevious() {
+            let page = localStorage.getItem('currentPage')
+            let totalPage = localStorage.getItem('totalPages')
+            if (page == 0) {
+                $('#previousPage').addClass('disabled')
+                $('#previousPage').attr('disabled', 'true')
+            } else {
+                $('#previousPage').removeClass('disabled')
+                $('#previousPage').removeAttr('disabled')
+            }
+            if (totalPage - 1 == page) {
+                $('#nextPage').addClass('disabled')
+                $('#nextPage').attr('disabled', 'true')
+            } else {
+                $('#nextPage').removeClass('disabled')
+                $('#nextPage').removeAttr('disabled')
+            }
+        }
+
+        function updateDataTable(result, needUpdate) {
+            let finalData = '';
+            result.data.forEach(row => {
+                finalData += format("<tr><th scope=\"row\">{id}</th><td  style='cursor: pointer' id={id} onclick='updateModalShow(this.id)'><i class=\"icon-pencil\"></i>{name}</td><td>{dob}</td><td>{gender}</td><td>{address}</td><td>{email}</td><td>{mobile}</td><td>{phone}</td></tr>", row);
+            })
+
+            $('#dataTableBody').html(finalData);
+            let pageNum = result.pagination.pageNumber + 1
+            console.log('pageNum', pageNum)
+            $('#pageAndTotalPage').html("Pages " + pageNum + "/" + result.pagination.totalPages);
+        }
+
+        function updateModalShow(id) {
+            $('#btnUpdateModalShow').trigger('click');
+            getStudentById(parseInt(id));
+        }
+
+        function getAllStudents(tableUpdatedNeeded, page, pageSize = 10) {
+            localStorage.setItem('currentPage', page.toString())
+            var request = {
+                "url": STUDENT_API + "getAllStudents",
+                "method": "POST",
+                "timeout": 0,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "data": JSON.stringify({
+                    "pageNumber": page,
+                    "pageSize": pageSize
+                }),
+            };
+            $.ajax(request).done(function (response) {
+                localStorage.setItem('totalPages', response.result.pagination.totalPages)
+                console.log(response)
+                updateDataTable(response.result, tableUpdatedNeeded)
+            });
+        }
+
+        function getStudentById(id) {
+            var request = {
+                "url": STUDENT_API + "getStudentById?id=" + id,
+                "method": "GET",
+                "timeout": 0,
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            };
+            $.ajax(request).done(function (response) {
+                let result = response.result
+                $('#uStudentId').val(result.id),
+                    $('#uStudentName').val(result.name),
+                    $('#uAddress').val(result.address),
+                    $('#uGender').val(result.gender),
+                    $('#uDob').val(result.dob),
+                    $('#uEmail').val(result.email),
+                    $('#uMobile').val(result.mobile),
+                    $('#uPhone').val(phone.phone)
+            });
+        }
+
+        function saveStudent() {
+            var request = {
+                "url": STUDENT_API + "saveOrUpdate",
+                "method": "POST",
+                "timeout": 0,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "data": JSON.stringify({
+                    "name": $('#studentName').val(),
+                    "address": $('#address').val(),
+                    "gender": $('#gender').val(),
+                    "dob": $('#dob').val(),
+                    "email": $('#email').val(),
+                    "mobile": $('#mobile').val(),
+                    "phone": $('#phone').val()
+                }),
+            };
+            $.ajax(request).done(function (response) {
+                $('#btnResetForm').trigger("click");
+                alert("Student Saved!")
+                getAllStudents(false, 0);
+            }).fail(function(data, textStatus, xhr) {
+                console.log("error", data.status);
+                alert("Student Saved Failed!")
+                console.log("STATUS: "+xhr);
+            });
+        }
+        function updateStudent() {
+            var request = {
+                "url": STUDENT_API + "saveOrUpdate",
+                "method": "POST",
+                "timeout": 0,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "data": JSON.stringify({
+                    "id": $('#uStudentId').val(),
+                    "name": $('#uStudentName').val(),
+                    "address": $('#uAddress').val(),
+                    "gender": $('#uGender').val(),
+                    "dob": $('#uDob').val(),
+                    "email": $('#uEmail').val(),
+                    "mobile": $('#uMobile').val(),
+                    "phone": $('#uPhone').val()
+                }),
+            };
+            $.ajax(request).done(function (response) {
+                $('#btnUResetForm').trigger("click");
+                alert("Student Updated!")
+                getAllStudents(false, 0);
+            }).fail(function(data, textStatus, xhr) {
+                console.log("error", data.status);
+                alert("Student Updated Failed!")
+                console.log("STATUS: "+xhr);
+            });;
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"
+            integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+            integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+            crossorigin="anonymous"></script>
+
+</head>
+<body>
+<h3>Welcome To Interview</h3>
+<hr/>
+<!-- Button trigger modal -->
+<button style="margin-left:10px;float: left" type="button" class="btn btn-primary" data-toggle="modal" data-target="#addModal">
+    <i class="icon-plus"></i>
+</button>
+
+<button type="button" class="btn btn-primary" id="btnUpdateModalShow" data-toggle="modal" data-target="#updateModal"
+        style="display: none"></button>
+
+<hr/>
+<div id="tableContainer">
+    <table class="table">
+        <thead class="thead-dark">
+        <tr>
+            <th scope="col">Index Number</th>
+            <th scope="col">Name</th>
+            <th scope="col">DOB</th>
+            <th scope="col">Gender</th>
+            <th scope="col">Address</th>
+            <th scope="col">Email</th>
+            <th scope="col">Mobile</th>
+            <th scope="col">Phone</th>
+        </tr>
+        </thead>
+        <tbody id="dataTableBody">
+
+        </tbody>
+    </table>
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-end">
+            <button class="page-item disabled" id="previousPage">
+                <a class="page-link" href="#" tabindex="-1">Previous</a>
+            </button>
+            <li class="page-item"><a class="page-link" id="pageAndTotalPage" href="#"></a></li>
+            <button id="nextPage" class="page-item">
+                <a class="page-link" href="#">Next</a>
+            </button>
+        </ul>
+    </nav>
+</div>
+
+<!-- Update Modal -->
+<div class="modal fade" id="updateModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateModalLabel">Update Student</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="frmUpdateStudent">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <input type="text" disabled class="form-control" id="uStudentId" required placeholder="Student Id">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="uStudentName" required placeholder="Student Name">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="uAddress" placeholder="Address">
+                    </div>
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select class="form-control" id="uGender">
+                            <option>M</option>
+                            <option>F</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <input type="date" class="form-control" id="uDob" placeholder="Address">
+                    </div>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="uEmail" placeholder="student@email.com">
+                    </div>
+                    <div class="form-group">
+                        <input type="tel" class="form-control" id="uMobile" placeholder="Mobile">
+                    </div>
+                    <div class="form-group">
+                        <input type="tel" class="form-control" id="uPhone" placeholder="Phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="reset" id="btnUResetForm" class="btn btn-secondary" data-dismiss="modal">Close
+                    </button>
+                    <button type="submit" id="btnUSaveStudent" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addModalLabel">Add Student</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="frmSaveStudent">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="studentName" required placeholder="Student Name">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="address" placeholder="Address">
+                    </div>
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select class="form-control" id="gender">
+                            <option>M</option>
+                            <option>F</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <input type="date" class="form-control" id="dob" placeholder="Address">
+                    </div>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="email" placeholder="student@email.com">
+                    </div>
+                    <div class="form-group">
+                        <input type="tel" class="form-control" id="mobile" placeholder="Mobile">
+                    </div>
+                    <div class="form-group">
+                        <input type="tel" class="form-control" id="phone" placeholder="Phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="reset" id="btnResetForm" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" id="btnSaveStudent" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
